@@ -99,7 +99,8 @@ The models' 32000-token input/output budgets are conservative gateway settings, 
 
 Long text is split automatically, with the original order and line breaks restored. Results are returned only after every segment succeeds.
 Streaming requests emit SSE after the complete translation succeeds; translation is not streamed token by token.
-Token usage is reported as 0. No verifiable upstream plan quota is available, and the plugin does not report fabricated usage.
+Doubao's web API reports no token counts, so the plugin estimates them: about four ASCII characters a token, a token a character for the rest (CJK, mostly).
+The estimate is shown and counted as input/output tokens; it is not the upstream's own count and does not represent an upstream plan quota.
 The plugin does not save source text, translated text, or separate statistics files.
 
 ## Options

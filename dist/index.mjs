@@ -21628,25 +21628,43 @@ function adaptRequest(protocol, input2, headerLanguage, defaultScene, requestId,
 import {randomUUID} from "node:crypto";
 
 var id = (prefix) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
-var usageChat = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
-var usageResponses = {
-    input_tokens: 0,
+// Doubao's web translation API reports no token counts, so usage is
+// estimated from the text: about four ASCII characters a token, a token a
+// character for the rest (CJK, mostly), as Magpie estimates a prompt.
+function estimateTokens(text) {
+    let ascii = 0;
+    let other = 0;
+    for (const char of text) {
+        if (char.codePointAt(0) < 128) ascii++;
+        else other++;
+    }
+    return Math.ceil(ascii / 4) + other;
+}
+var usageChat = (input, output) => ({
+    prompt_tokens: input,
+    completion_tokens: output,
+    total_tokens: input + output
+});
+var usageResponses = (input, output) => ({
+    input_tokens: input,
     input_tokens_details: {cached_tokens: 0},
-    output_tokens: 0,
+    output_tokens: output,
     output_tokens_details: {reasoning_tokens: 0},
-    total_tokens: 0
-};
+    total_tokens: input + output
+});
 var textPart = (text) => ({type: "output_text", text, annotations: [], logprobs: []});
 
 function formatJSON(protocol, result, adapted) {
     const created = Math.floor(Date.now() / 1e3);
+    const input = estimateTokens(adapted.canonical.rawText);
+    const output = estimateTokens(result.text);
     if (protocol === "openai-chat") return {
         id: id("chatcmpl"),
         object: "chat.completion",
         created,
         model: result.model,
         choices: [{index: 0, message: {role: "assistant", content: result.text}, finish_reason: "stop"}],
-        usage: usageChat
+        usage: usageChat(input, output)
     };
     if (protocol === "anthropic") return {
         id: id("msg"),
@@ -21656,7 +21674,7 @@ function formatJSON(protocol, result, adapted) {
         content: [{type: "text", text: result.text}],
         stop_reason: "end_turn",
         stop_sequence: null,
-        usage: {input_tokens: 0, output_tokens: 0}
+        usage: {input_tokens: input, output_tokens: output}
     };
     return {
         id: id("resp"),
@@ -21675,7 +21693,7 @@ function formatJSON(protocol, result, adapted) {
             role: "assistant",
             content: [textPart(result.text)]
         }],
-        usage: usageResponses,
+        usage: usageResponses(input, output),
         tools: [],
         tool_choice: "none",
         parallel_tool_calls: false,
@@ -21717,7 +21735,7 @@ function formatSSE(protocol, result, adapted) {
             created: complete.created,
             model: result.model,
             choices: [],
-            usage: usageChat
+            usage: complete.usage
         });
         frames.push("data: [DONE]\n\n");
     } else if (protocol === "anthropic") {
@@ -21732,7 +21750,7 @@ function formatSSE(protocol, result, adapted) {
         emit({
             type: "message_delta",
             delta: {stop_reason: "end_turn", stop_sequence: null},
-            usage: {output_tokens: 0}
+            usage: {output_tokens: complete.usage.output_tokens}
         }, "message_delta");
         emit({type: "message_stop"}, "message_stop");
     } else {
