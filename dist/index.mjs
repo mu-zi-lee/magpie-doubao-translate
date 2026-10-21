@@ -20253,7 +20253,7 @@ var DoubaoClient = class {
     const combined = AbortSignal.any([signal, AbortSignal.timeout(timeout)]);
     const headers = new Headers(init.headers);
     headers.set("Cookie", cookie);
-    if (this.config.DOUBAO_USER_AGENT) headers.set("User-Agent", this.config.DOUBAO_USER_AGENT);
+    headers.set("User-Agent", this.config.DOUBAO_USER_AGENT || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36");
     try {
       const response = await this.fetcher(ORIGIN + path, { ...init, headers, signal: combined, redirect: "error" });
       if (!response.ok) {
